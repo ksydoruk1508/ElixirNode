@@ -51,13 +51,20 @@ function install_node {
     echo -e "${BLUE}Загружаем конфигурационный файл...${NC}"
     wget https://files.elixir.finance/validator.env
 
-    echo -e "${YELLOW}Редактируйте файл конфигурации validator.env, чтобы заполнить следующие поля:${NC}"
-    echo -e "${CYAN}ENV=testnet-3 или ENV=prod (Значит Mainnet)${NC}"
-    echo -e "${CYAN}STRATEGY_EXECUTOR_IP_ADDRESS=IP адрес (сервера)${NC}"
-    echo -e "${CYAN}STRATEGY_EXECUTOR_DISPLAY_NAME=придумать имя валидатору${NC}"
-    echo -e "${CYAN}STRATEGY_EXECUTOR_BENEFICIARY=адрес кошелька №2${NC}"
-    echo -e "${CYAN}SIGNER_PRIVATE_KEY=приватный ключ кошелька №2${NC}"
-    nano validator.env
+    echo -e "${YELLOW}Заполняем конфигурационный файл...${NC}"
+    read -p "Введите окружение (prod или testnet-3): " ENV
+    read -p "Введите IP-адрес сервера: " STRATEGY_EXECUTOR_IP_ADDRESS
+    read -p "Введите имя валидатора: " STRATEGY_EXECUTOR_DISPLAY_NAME
+    read -p "Введите адрес кошелька для вознаграждений: " STRATEGY_EXECUTOR_BENEFICIARY
+    read -p "Введите приватный ключ (без '0x'): " SIGNER_PRIVATE_KEY
+
+    cat << EOF > validator.env
+ENV=$ENV
+STRATEGY_EXECUTOR_IP_ADDRESS=$STRATEGY_EXECUTOR_IP_ADDRESS
+STRATEGY_EXECUTOR_DISPLAY_NAME=$STRATEGY_EXECUTOR_DISPLAY_NAME
+STRATEGY_EXECUTOR_BENEFICIARY=$STRATEGY_EXECUTOR_BENEFICIARY
+SIGNER_PRIVATE_KEY=$SIGNER_PRIVATE_KEY
+EOF
 
     echo -e "${BLUE}Загружаем Docker-образ валидатора...${NC}"
     docker pull elixirprotocol/validator:v3
