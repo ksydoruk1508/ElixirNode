@@ -44,6 +44,7 @@ function install_node {
     sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io
     sudo usermod -aG docker $USER
     newgrp docker
+    sleep 3
 
     echo -e "${BLUE}Создаем директорию для ноды Elixir...${NC}"
     mkdir -p /root/elixir && cd /root/elixir
