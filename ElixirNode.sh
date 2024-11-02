@@ -42,11 +42,8 @@ function install_node {
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io
-    sleep 30
     sudo usermod -aG docker $USER
-    sleep 15
-    newgrp docker
-    sleep 3
+    echo -e "${YELLOW}Перезагрузите текущую сессию или выполните команду 'newgrp docker', чтобы изменения вступили в силу.${NC}"
 
     echo -e "${BLUE}Создаем директорию для ноды Elixir...${NC}"
     mkdir -p /root/elixir && cd /root/elixir
