@@ -1,99 +1,129 @@
 #!/bin/bash
 
-function install_node {
-    echo "Updating and upgrading system packages..."
-    sudo apt-get update -y && sudo apt upgrade -y
-    echo "Installing dependencies..."
-    sudo apt-get install make screen build-essential unzip lz4 gcc git jq -y
+# Цвета текста
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # Нет цвета (сброс цвета)
 
-    echo "Installing Go..."
-    sudo rm -rf /usr/local/go
-    curl -Ls https://go.dev/dl/go1.22.4.linux-amd64.tar.gz | sudo tar -xzf - -C /usr/local
-    eval $(echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/golang.sh)
-    eval $(echo 'export PATH=$PATH:$HOME/go/bin' | tee -a $HOME/.profile)
+# Проверка наличия curl и установка, если не установлен
+if ! command -v curl &> /dev/null; then
+    sudo apt update
+    sudo apt install curl -y
+fi
+sleep 1
 
-    echo "Downloading project repository..."
-    wget https://github.com/hemilabs/heminetwork/releases/download/v0.5.0/heminetwork_v0.5.0_linux_amd64.tar.gz
-    tar -xvf heminetwork_v0.5.0_linux_amd64.tar.gz
-    rm -rf heminetwork_v0.5.0_linux_amd64.tar.gz
-    cd heminetwork_v0.5.0_linux_amd64/
+echo -e "${GREEN}"
+cat << "EOF"
+███████  ██████  ██████      ██   ██ ███████ ███████ ██████      ██ ████████     ████████ ██████   █████  ██████  ██ ███    ██  ██████  
+██      ██    ██ ██   ██     ██  ██  ██      ██      ██   ██     ██    ██           ██    ██   ██ ██   ██ ██   ██ ██ ████   ██ ██       
+█████   ██    ██ ██████      █████   █████   █████   ██████      ██    ██           ██    ██████  ███████ ██   ██ ██ ██ ██  ██ ██   ███ 
+██      ██    ██ ██   ██     ██  ██  ██      ██      ██          ██    ██           ██    ██   ██ ██   ██ ██   ██ ██ ██  ██ ██ ██    ██ 
+██       ██████  ██   ██     ██   ██ ███████ ███████ ██          ██    ██           ██    ██   ██ ██   ██ ██████  ██ ██   ████  ██████  
+                                                                                                                                         
+                                                                                                                                         
+ ██  ██████  ██       █████  ███    ██ ██████   █████  ███    ██ ████████ ███████                                                         
+██  ██        ██     ██   ██ ████   ██ ██   ██ ██   ██ ████   ██    ██    ██                                                             
+██  ██        ██     ███████ ██ ██  ██ ██   ██ ███████ ██ ██  ██    ██    █████                                                          
+██  ██        ██     ██   ██ ██  ██ ██ ██   ██ ██   ██ ██  ██ ██    ██    ██                                                             
+ ██  ██████  ██      ██   ██ ██   ████ ██████  ██   ██ ██   ████    ██    ███████
 
-    echo "Creating wallet..."
-    ./keygen -secp256k1 -json -net="testnet" > /root/heminetwork_v0.5.0_linux_amd64/popm-address.json
-    cat popm-address.json
-    echo "Save the above file and its data - this is your wallet!"
-
-    read -p "Enter your private key: " PRIVATE_KEY
-    echo "export POPM_PRIVATE_KEY=$PRIVATE_KEY" >> ~/.bashrc
-    echo "export POPM_STATIC_FEE=5000" >> ~/.bashrc
-    echo "export POPM_BFG_URL=wss://testnet.rpc.hemi.network/v1/ws/public" >> ~/.bashrc
-    source ~/.bashrc
-
-    echo "Creating service file..."
-    sudo tee /etc/systemd/system/hemid.service > /dev/null <<EOF
-[Unit]
-Description=Hemi
-After=network.target
-
-[Service]
-User=$USER
-Environment="POPM_BTC_PRIVKEY=$POPM_PRIVATE_KEY"
-Environment="POPM_STATIC_FEE=5000"
-Environment="POPM_BFG_URL=wss://testnet.rpc.hemi.network/v1/ws/public"
-WorkingDirectory=/root/heminetwork_v0.5.0_linux_amd64
-ExecStart=/root/heminetwork_v0.5.0_linux_amd64/popmd
-Restart=on-failure
-RestartSec=10
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
+Donate: 0x0004230c13c3890F34Bb9C9683b91f539E809000
 EOF
+echo -e "${NC}"
 
-    echo "Starting service..."
-    sudo systemctl enable hemid
-    sudo systemctl daemon-reload
-    sudo systemctl start hemid
-    echo "Node installation complete."
+function install_node {
+    echo -e "${BLUE}Обновляем сервер...${NC}"
+    sudo apt-get update -y && sudo apt upgrade -y && sudo apt install -y curl git jq lz4 build-essential unzip ca-certificates gnupg lsb-release
+
+    echo -e "${BLUE}Устанавливаем Docker...${NC}"
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io
+    sudo usermod -aG docker $USER
+    newgrp docker
+
+    echo -e "${BLUE}Создаем директорию для ноды Elixir...${NC}"
+    mkdir elixir && cd elixir
+
+    echo -e "${BLUE}Загружаем конфигурационный файл...${NC}"
+    wget https://files.elixir.finance/validator.env
+
+    echo -e "${YELLOW}Редактируйте файл конфигурации validator.env, чтобы заполнить следующие поля:${NC}"
+    echo -e "${CYAN}ENV=testnet-3 или ENV=prod (Значит Mainnet)${NC}"
+    echo -e "${CYAN}STRATEGY_EXECUTOR_IP_ADDRESS=IP адрес (сервера)${NC}"
+    echo -e "${CYAN}STRATEGY_EXECUTOR_DISPLAY_NAME=придумать имя валидатору${NC}"
+    echo -e "${CYAN}STRATEGY_EXECUTOR_BENEFICIARY=адрес кошелька №2${NC}"
+    echo -e "${CYAN}SIGNER_PRIVATE_KEY=приватный ключ кошелька №2${NC}"
+    nano validator.env
+
+    echo -e "${BLUE}Загружаем Docker-образ валидатора...${NC}"
+    docker pull elixirprotocol/validator:v3
+
+    echo -e "${BLUE}Запускаем ноду Elixir...${NC}"
+    docker run -d --env-file /root/elixir/validator.env --name elixir --platform
+
+    echo -e "${GREEN}Нода Elixir успешно установлена и запущена!${NC}"
+}
+
+function restart_node {
+    echo -e "${BLUE}Перезапускаем Docker контейнер...${NC}"
+    docker restart elixir
+}
+
+function view_logs {
+    echo -e "${YELLOW}Просмотр логов (выход из логов CTRL+C)...${NC}"
+    docker logs -f elixir --tail=50
 }
 
 function change_port {
-    read -p "Enter new port number: " NEW_PORT
-    sudo sed -i "s/Environment=\"POPM_BFG_URL=wss:\/\/testnet\.rpc\.hemi\.network\/v1\/ws\/public\"/Environment=\"POPM_BFG_URL=wss:\/\/testnet\.rpc\.hemi\.network:\$NEW_PORT\/v1\/ws\/public\"/g" /etc/systemd/system/hemid.service
-    sudo systemctl daemon-reload
-    sudo systemctl restart hemid
-    echo "Port changed to $NEW_PORT."
+    echo -e "${YELLOW}Введите новый порт: ${NC}"
+    read new_port
+    if [ -f "/root/elixir/validator.env" ]; then
+        sed -i "s/EXISTING_PORT_VARIABLE=.*/EXISTING_PORT_VARIABLE=$new_port/" /root/elixir/validator.env
+        echo -e "${BLUE}Перезапускаем контейнер с новым портом...${NC}"
+        docker restart elixir
+        echo -e "${GREEN}Порт успешно изменен на $new_port и контейнер перезапущен.${NC}"
+    else
+        echo -e "${RED}Файл конфигурации validator.env не найден.${NC}"
+    fi
 }
 
 function remove_node {
-    echo "Stopping and disabling service..."
-    sudo systemctl stop hemid
-    sudo systemctl disable hemid
-    sudo rm /etc/systemd/system/hemid.service
-    sudo systemctl daemon-reload
-    echo "Removing node files..."
-    rm -rf /root/heminetwork_v0.5.0_linux_amd64
-    echo "Node removed successfully."
+    echo -e "${BLUE}Удаляем Docker контейнер и директорию...${NC}"
+    docker stop elixir && docker rm elixir --force 2>/dev/null || echo -e "${RED}Контейнер elixir не найден.${NC}"
+    if [ -d "elixir" ]; then
+        rm -rf elixir
+        echo -e "${GREEN}Нода успешно удалена.${NC}"
+    else
+        echo -e "${RED}Директория elixir не найдена.${NC}"
+    fi
 }
 
-PS3="Please select an option: "
-options=("Install Node" "Change Port" "Remove Node" "Exit")
-select opt in "${options[@]}"; do
-    case $opt in
-        "Install Node")
-            install_node
-            ;;
-        "Change Port")
-            change_port
-            ;;
-        "Remove Node")
-            remove_node
-            ;;
-        "Exit")
-            break
-            ;;
-        *)
-            echo "Invalid option $REPLY"
-            ;;
-    esac
-done
+function main_menu {
+    while true; do
+        echo -e "${YELLOW}Выберите действие:${NC}"
+        echo -e "${CYAN}1. Установка ноды${NC}"
+        echo -e "${CYAN}2. Рестарт ноды${NC}"
+        echo -e "${CYAN}3. Просмотр логов${NC}"
+        echo -e "${CYAN}4. Изменить порт${NC}"
+        echo -e "${CYAN}5. Удаление ноды${NC}"
+        echo -e "${CYAN}6. Выход${NC}"
+       
+        echo -e "${YELLOW}Введите номер:${NC} "
+        read choice
+        case $choice in
+            1) install_node ;;
+            2) restart_node ;;
+            3) view_logs ;;
+            4) change_port ;;
+            5) remove_node ;;
+            6) break ;;
+            *) echo -e "${RED}Неверный выбор, попробуйте снова.${NC}" ;;
+        esac
+    done
+}
+
+main_menu
