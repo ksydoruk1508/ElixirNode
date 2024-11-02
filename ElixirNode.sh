@@ -46,7 +46,7 @@ function install_node {
     newgrp docker
 
     echo -e "${BLUE}Создаем директорию для ноды Elixir...${NC}"
-    mkdir elixir && cd elixir
+    mkdir -p /root/elixir && cd /root/elixir
 
     echo -e "${BLUE}Загружаем конфигурационный файл...${NC}"
     wget https://files.elixir.finance/validator.env
@@ -63,7 +63,7 @@ function install_node {
     docker pull elixirprotocol/validator:v3
 
     echo -e "${BLUE}Запускаем ноду Elixir...${NC}"
-    docker run -d --env-file /root/elixir/validator.env --name elixir --platform
+    docker run -d --env-file /root/elixir/validator.env --name elixir --platform linux/amd64 elixirprotocol/validator:v3
 
     echo -e "${GREEN}Нода Elixir успешно установлена и запущена!${NC}"
 }
@@ -94,8 +94,8 @@ function change_port {
 function remove_node {
     echo -e "${BLUE}Удаляем Docker контейнер и директорию...${NC}"
     docker stop elixir && docker rm elixir --force 2>/dev/null || echo -e "${RED}Контейнер elixir не найден.${NC}"
-    if [ -d "elixir" ]; then
-        rm -rf elixir
+    if [ -d "/root/elixir" ]; then
+        rm -rf /root/elixir
         echo -e "${GREEN}Нода успешно удалена.${NC}"
     else
         echo -e "${RED}Директория elixir не найдена.${NC}"
