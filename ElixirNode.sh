@@ -120,6 +120,15 @@ function remove_node {
     fi
 }
 
+function update_node {
+    echo -e "${BLUE}Обновляем ноду Elixir...${NC}"
+    docker kill elixir
+    docker rm elixir
+    docker pull elixirprotocol/validator:v3 --platform linux/amd64
+    docker run -d --env-file /root/elixir/validator.env --name elixir --platform linux/amd64 -p 17690:17690 elixirprotocol/validator:v3
+    echo -e "${GREEN}Нода Elixir успешно обновлена!${NC}"
+}
+
 function main_menu {
     while true; do
         echo -e "${YELLOW}Выберите действие:${NC}"
@@ -128,8 +137,9 @@ function main_menu {
         echo -e "${CYAN}3. Просмотр логов${NC}"
         echo -e "${CYAN}4. Изменить порт${NC}"
         echo -e "${CYAN}5. Удаление ноды${NC}"
-        echo -e "${CYAN}6. Перейти к другим нодам${NC}"
-        echo -e "${CYAN}7. Выход${NC}"
+        echo -e "${CYAN}6. Обновление ноды${NC}"  # New option for node update
+        echo -e "${CYAN}7. Перейти к другим нодам${NC}"
+        echo -e "${CYAN}8. Выход${NC}"
        
         echo -e "${YELLOW}Введите номер действия:${NC} "
         read choice
@@ -139,12 +149,14 @@ function main_menu {
             3) view_logs ;;
             4) change_port ;;
             5) remove_node ;;
-            6) wget -q -O Ultimative_Node_Installer.sh https://raw.githubusercontent.com/ksydoruk1508/Ultimative_Node_Installer/main/Ultimative_Node_Installer.sh && sudo chmod +x Ultimative_Node_Installer.sh && ./Ultimative_Node_Installer.sh
-            ;;
-            7) break ;;
+            6) update_node ;;  # Call to new function
+            7) wget -q -O Ultimative_Node_Installer.sh https://raw.githubusercontent.com/ksydoruk1508/Ultimative_Node_Installer/main/Ultimative_Node_Installer.sh && sudo chmod +x Ultimative_Node_Installer.sh && ./Ultimative_Node_Installer.sh ;;
+            8) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова.${NC}" ;;
         esac
     done
 }
 
 main_menu
+
+This version includes the new update_node function and adjusts the main_menu to include an option for updating the node.
