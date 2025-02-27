@@ -158,5 +158,3 @@ function main_menu {
 }
 
 main_menu
-
-This version includes the new update_node function and adjusts the main_menu to include an option for updating the node.
